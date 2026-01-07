@@ -1,3 +1,5 @@
+#nano mqtt_firebase.py in VM GCP 
+
 import json
 import firebase_admin
 from firebase_admin import credentials

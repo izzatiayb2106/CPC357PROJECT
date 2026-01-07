@@ -52,7 +52,7 @@ if 'ui_frame_skip' not in st.session_state:
 def camera_capture_thread(camera_source, width, height, stop_flag, frame_container):
     """Background thread for continuous camera capture"""
     try:
-        # Try DirectShow first (Windows) - best for Logitech
+       
         cap = cv2.VideoCapture(camera_source, cv2.CAP_DSHOW)
         time.sleep(0.3)
         
@@ -62,7 +62,7 @@ def camera_capture_thread(camera_source, width, height, stop_flag, frame_contain
             time.sleep(0.3)
         
         if cap.isOpened():
-            # Optimal settings for C922 Pro
+            # settings for C922 Pro
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             cap.set(cv2.CAP_PROP_FPS, 30)
@@ -259,7 +259,7 @@ with st.sidebar:
     
     st.subheader("⚙️ Settings")
     
-    refresh_interval = st.slider("Data Refresh Interval (seconds)", 3, 30, 5)
+    refresh_interval = st.slider("Data Refresh Interval (seconds)", 3, 30, 10)
     camera_enabled = st.checkbox("Enable Live Camera", value=True)
     
     st.markdown("**🎥 Camera Settings (Logitech C922 Pro)**")
@@ -267,7 +267,7 @@ with st.sidebar:
     
     resolution_option = st.selectbox(
         "Resolution",
-        ["720p (1280x720) - Recommended", "1080p (1920x1080)", "480p (640x480)"],
+        ["720p (1280x720) ", "1080p (1920x1080)", "480p (640x480)"],
         index=0
     )
     
@@ -417,12 +417,12 @@ while True:
             motion_val = latest.get('motion_detected', False)
             
             # Smoke metric with color coding
-            smoke_color = "🟢" if smoke_val < 300 else "🟡" if smoke_val < 600 else "🔴"
+            smoke_color = "🟢" if smoke_val < 2000 else "🟡" if smoke_val < 3000 else "🔴"
             m1.metric("💨 Smoke Level", f"{smoke_val} {smoke_color}", 
                      delta=None, delta_color="off")
             
             # Air quality metric
-            air_color = "🟢" if air_val < 100 else "🟡" if air_val < 200 else "🔴"
+            air_color = "🟢" if air_val < 2000 else "🟡" if air_val < 3000 else "🔴"
             m2.metric("🌫️ Air Quality", f"{air_val} {air_color}", 
                      delta=None, delta_color="off")
             
