@@ -1,17 +1,17 @@
 #include <ESP32Servo.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <ArduinoJson.h> 
+#include <ArduinoJson.h>
 
 // =========================================================
 // 1. WIFI & MQTT CONFIGURATION
 // =========================================================
-const char* WIFI_SSID = "izzatiayb";       
-const char* WIFI_PASSWORD = "izzati1234"; 
+const char *WIFI_SSID = "izzatiayb";
+const char *WIFI_PASSWORD = "izzati1234";
 
-const char* MQTT_SERVER = "34.69.160.62"; // GCP VM IP
-const char* MQTT_TOPIC = "iot";            // Topic to publish 
-const int MQTT_PORT = 1883; 
+const char *MQTT_SERVER = "136.111.56.9";
+const char *MQTT_TOPIC = "iot";
+const int MQTT_PORT = 1883;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -19,87 +19,113 @@ PubSubClient client(espClient);
 // =========================================================
 // 2. PIN DEFINITIONS
 // =========================================================
-const int ldrPin = A4;        // Analog Input (A4)
-const int pirPin = 5;         // Digital Input (Left Port)
+const int ldrPin = A4;
+const int pirPin = 5;
 
 // --- BREADBOARD SENSORS ---
-const int mq2Pin = A1;        // MQ2 Indoor Smoke (A1)
-const int mq135Pin = A2;      // MQ135 Outdoor Air (A2)
-const int rainPin = 10;       // Rain Sensor (Digital D10)
+const int mq2Pin = A1;
+const int mq135Pin = A2;
+const int rainPin = 10;
 
 // --- ACTUATORS ---
-const int fanRelayPin = 14;   // Relay Ch1 (Fan) - D14
-const int ledRelayPin = 47;   // Relay Ch2 (LED) - D47
-const int servoPin = 21;      // Servo Motor - D21
-const int buzzerPin = 12;     // Built-in Buzzer - D12
+const int fanRelayPin = 14;
+const int ledRelayPin = 47;
+const int servoPin = 21;
+const int buzzerPin = 12;
+
+// --- SECURITY ---
+const int panicButtonPin = 48;
 
 // =========================================================
 // 3. SETTINGS & VARIABLES
 // =========================================================
-// SENSOR THRESHOLDS
-const int smokeThreshold = 4000;      
-const int airQualityThreshold = 4000; 
-const int lightThreshold = 1500;      
+const int smokeThreshold = 4000;
+const int airQualityThreshold = 4000;
+const int lightThreshold = 1500;
 
-const bool TEST_MODE = false; 
+const bool TEST_MODE = false;
 
-Servo windowServo; 
-volatile bool motionDetected = false; 
-bool isSystemActive = false;          
-unsigned long lastMotionTime = 0;     
-const int activeDuration = 2000;      
+Servo windowServo;
+volatile bool motionDetected = false;
+bool isSystemActive = false;
+unsigned long lastMotionTime = 0;
+const int activeDuration = 2000;
 
-bool isWindowClosed = false;          
-int windowOpenAngle = 0;    
-int windowClosedAngle = 100; 
+bool isWindowClosed = false;
+int windowOpenAngle = 0;
+int windowClosedAngle = 100;
+
+// --- EMERGENCY ---
+bool emergencyActive = false;
+unsigned long emergencyStartTime = 0;
+const unsigned long emergencyDuration = 15000;
+
+// --- SENSOR WARMUP ---
+unsigned long startupTime = 0;
+const unsigned long sensorWarmupTime = 30000;
 
 // MQTT Timer
 unsigned long lastMsgTime = 0;
-const long interval = 10000; // Send data every 10 seconds
+const long interval = 5000;
 
 // =========================================================
 // 4. HELPER FUNCTIONS
 // =========================================================
 
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(WIFI_SSID);
-
+// *** WIFI SETUP ***
+void setup_wifi()
+{
+  Serial.print("Connecting to WiFi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  // Try to connect for 10 seconds (20 * 500ms)
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  {
     delay(500);
     Serial.print(".");
+    attempts++;
   }
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("\n✅ WiFi connected");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  }
+  else
+  {
+    Serial.println("\n⚠️ WiFi Failed! Continuing offline...");
+  }
 }
 
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("ESP32_IoT_Client")) {
-      Serial.println("connected");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
+void reconnect()
+{
+  // Only try to reconnect if WiFi is actually connected
+  if (WiFi.status() != WL_CONNECTED)
+    return;
+
+  if (!client.connected())
+  {
+    Serial.print("Connecting to MQTT...");
+    if (client.connect("ESP32_IoT_Client"))
+    {
+      Serial.println("✅ Connected to MQTT");
+    }
+    else
+    {
+      Serial.print("❌ Failed, rc=");
+      Serial.println(client.state());
     }
   }
 }
 
-void playTone(int pin, int frequency, int duration) {
+void playTone(int pin, int frequency, int duration)
+{
   long delayAmount = 1000000 / frequency / 2;
   long loops = frequency * duration / 1000;
-  for (long i = 0; i < loops; i++) {
+  for (long i = 0; i < loops; i++)
+  {
     digitalWrite(pin, HIGH);
     delayMicroseconds(delayAmount);
     digitalWrite(pin, LOW);
@@ -107,43 +133,63 @@ void playTone(int pin, int frequency, int duration) {
   }
 }
 
-void IRAM_ATTR motionDetect() {
-  motionDetected = true; 
+void IRAM_ATTR motionDetect()
+{
+  motionDetected = true;
+}
+
+void triggerEmergency()
+{
+  emergencyActive = true;
+  emergencyStartTime = millis();
+
+  Serial.println("🚨 EMERGENCY MODE ACTIVATED");
+
+  windowServo.write(windowClosedAngle);
+  isWindowClosed = true;
+
+  playTone(buzzerPin, 1200, 500);
 }
 
 // =========================================================
 // 5. SETUP
 // =========================================================
-void setup() {
-  Serial.begin(9600);
-  
-  // A. PIN MODES
+void setup()
+{
+  // *** SAFETY DELAY ***
+  delay(5000);
+
+  Serial.begin(115200);
+  Serial.println("\n=== ESP32 SYSTEM STARTED ===");
+
+  startupTime = millis();
+
   pinMode(pirPin, INPUT);
   pinMode(rainPin, INPUT);
   pinMode(mq2Pin, INPUT);
   pinMode(mq135Pin, INPUT);
   pinMode(ldrPin, INPUT);
-  
+
   pinMode(fanRelayPin, OUTPUT);
   pinMode(ledRelayPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
+  pinMode(panicButtonPin, INPUT_PULLUP);
 
-  // B. ACTUATOR DEFAULTS
-  digitalWrite(fanRelayPin, HIGH); 
-  digitalWrite(ledRelayPin, HIGH); 
+  digitalWrite(buzzerPin, LOW);
+  digitalWrite(fanRelayPin, HIGH);
+  digitalWrite(ledRelayPin, HIGH);
 
-  // C. SERVO SETUP
   ESP32PWM::allocateTimer(0);
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
   ESP32PWM::allocateTimer(3);
-  windowServo.setPeriodHertz(50);    
-  windowServo.attach(servoPin, 500, 2400); 
-  windowServo.write(windowOpenAngle); 
+
+  windowServo.setPeriodHertz(50);
+  windowServo.attach(servoPin, 500, 2400);
+  windowServo.write(windowOpenAngle);
 
   attachInterrupt(digitalPinToInterrupt(pirPin), motionDetect, RISING);
 
-  // D. CONNECT
   setup_wifi();
   client.setServer(MQTT_SERVER, MQTT_PORT);
 }
@@ -151,109 +197,147 @@ void setup() {
 // =========================================================
 // 6. MAIN LOOP
 // =========================================================
-void loop() {
-  if (!client.connected()) {
-    reconnect();
+void loop()
+{
+  // Ensure we only try MQTT if WiFi is alive
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    if (!client.connected())
+    {
+      // Simple non-blocking reconnect check could go here
+      reconnect();
+    }
+    client.loop();
   }
-  client.loop();
 
-  // 1. READ SENSORS (With stability delay)
-  analogRead(mq2Pin); delay(5);
-  int smokeValue = analogRead(mq2Pin); 
+  // ---------- PANIC BUTTON ----------
+  if (digitalRead(panicButtonPin) == LOW && !emergencyActive)
+  {
+    delay(50);
+    if (digitalRead(panicButtonPin) == LOW)
+    {
+      Serial.println("🛑 Panic button pressed");
+      triggerEmergency();
+    }
+  }
 
-  analogRead(mq135Pin); delay(5);
+  // ---------- SENSOR READ ----------
+  int smokeValue = analogRead(mq2Pin);
   int airValue = analogRead(mq135Pin);
-
   int lightLevel = analogRead(ldrPin);
   bool rainDetected = (digitalRead(rainPin) == LOW);
 
-  // =============================================
-  // 2. LOCAL AUTOMATION 
-  // =============================================
-
-  // --- Smoke Alarm ---
-  bool smokeAlarm = (TEST_MODE) ? (smokeValue < smokeThreshold) : (smokeValue > smokeThreshold);
-  if (smokeAlarm) {
-    Serial.print("HAZARD: Smoke Detected! Val: ");
-    Serial.println(smokeValue);
-    playTone(buzzerPin, 1000, 100); 
+  // ---------- DEBUG SENSOR VALUES ----------
+  //
+  static unsigned long lastDebug = 0;
+  if (millis() - lastDebug > 2000)
+  {
+    Serial.print("Smoke: ");
+    Serial.print(smokeValue);
+    Serial.print(" | Air: ");
+    Serial.print(airValue);
+    Serial.print(" | Rain: ");
+    Serial.print(rainDetected);
+    Serial.print(" | PanicBtn: ");
+    Serial.println(digitalRead(panicButtonPin));
+    lastDebug = millis();
   }
 
-  // --- Window Control ---
-  bool badAir = (TEST_MODE) ? (airValue < airQualityThreshold) : (airValue > airQualityThreshold);
-  
-  if (rainDetected || badAir) {
-    if (!isWindowClosed) {
-      if (rainDetected) Serial.println("WEATHER: Rain -> Closing Window");
-      if (badAir) Serial.println("WEATHER: Bad Air -> Closing Window");
-      windowServo.write(windowClosedAngle); 
+  // ---------- SMOKE ALARM ----------
+  if (millis() - startupTime > sensorWarmupTime)
+  {
+    bool smokeAlarm = smokeValue > smokeThreshold;
+    if (smokeAlarm)
+    {
+      Serial.println("🔥 Smoke threshold exceeded!");
+      playTone(buzzerPin, 1000, 100);
+    }
+  }
+
+  // ---------- WINDOW CONTROL ----------
+  bool badAir = airValue > airQualityThreshold;
+
+  if (rainDetected || badAir || emergencyActive)
+  {
+    if (!isWindowClosed)
+    {
+      Serial.println("🔒 Closing window");
+      windowServo.write(windowClosedAngle);
       isWindowClosed = true;
     }
-  } else {
-    if (isWindowClosed) {
-      Serial.println("WEATHER: Clear -> Opening Window");
+  }
+  else
+  {
+    if (isWindowClosed)
+    {
+      Serial.println("🔓 Opening window");
       windowServo.write(windowOpenAngle);
       isWindowClosed = false;
     }
   }
 
-  // --- Smart Lighting ---
+  // ---------- SMART COMFORT ----------
   bool isDark = (lightLevel > lightThreshold);
 
-  if (motionDetected) {
-    if (!isSystemActive) {
-      digitalWrite(fanRelayPin, LOW); // Fan ON
-      Serial.print("MOTION: Fan ON");
-      
-      if (isDark) {
-        digitalWrite(ledRelayPin, LOW); // LED ON
-        Serial.println(" & Room Dark -> LED BRIGHT");
-      } else {
-        digitalWrite(ledRelayPin, HIGH); // LED OFF
-        Serial.println(" & Room Bright -> LED DIM");
-      }
-      isSystemActive = true;
-    }
+  if (motionDetected && !emergencyActive)
+  {
+    Serial.println("👣 Motion detected");
+    digitalWrite(fanRelayPin, LOW);
+    digitalWrite(ledRelayPin, isDark ? LOW : HIGH);
+    isSystemActive = true;
     lastMotionTime = millis();
     motionDetected = false;
   }
 
-  // Timer to Turn OFF
-  if (isSystemActive && (millis() - lastMotionTime > activeDuration)) {
-    digitalWrite(fanRelayPin, HIGH); // OFF
-    digitalWrite(ledRelayPin, HIGH); // OFF
+  if (isSystemActive && millis() - lastMotionTime > activeDuration)
+  {
+    Serial.println("💤 No motion, system idle");
+    digitalWrite(fanRelayPin, HIGH);
+    digitalWrite(ledRelayPin, HIGH);
     isSystemActive = false;
-    Serial.println("MOTION END: Fan OFF & LED Dim");
   }
 
-  // =============================================
-  // 3. MQTT PUBLISHING
-  // =============================================
-  unsigned long now = millis();
-  if (now - lastMsgTime > interval) {
-    lastMsgTime = now;
+  // ---------- EMERGENCY MODE ----------
+  if (emergencyActive)
+  {
+    digitalWrite(ledRelayPin, LOW);
+    playTone(buzzerPin, 1000, 100);
+    delay(200);
+    digitalWrite(ledRelayPin, HIGH);
+    delay(200);
 
-    // Create JSON Payload
+    if (millis() - emergencyStartTime > emergencyDuration)
+    {
+      emergencyActive = false;
+      Serial.println("✅ Emergency ended");
+    }
+  }
+
+  // ---------- MQTT ----------
+  if (millis() - lastMsgTime > interval)
+  {
+    lastMsgTime = millis();
+
     StaticJsonDocument<256> doc;
     doc["smoke"] = smokeValue;
     doc["air"] = airValue;
     doc["light"] = lightLevel;
-    doc["rain"] = rainDetected; // true/false
-    doc["motion"] = isSystemActive; // true/false
-    
-    // Add actuator status for dashboard feedback
+    doc["rain"] = rainDetected;
+    doc["motion"] = isSystemActive;
     doc["window"] = isWindowClosed ? "CLOSED" : "OPEN";
+    doc["emergency"] = emergencyActive ? "true" : "false";
 
-    char jsonBuffer[512];
-    serializeJson(doc, jsonBuffer);
+    char buffer[512];
+    serializeJson(doc, buffer);
 
-    // Publish to GCP
-    client.publish(MQTT_TOPIC, jsonBuffer);
-    
-    // Print to Serial for debugging
-    Serial.print("MQTT SENT: ");
-    Serial.println(jsonBuffer);
+    if (client.connected())
+    {
+      Serial.print("📡 MQTT Publish: ");
+      Serial.println(buffer);
+      client.publish(MQTT_TOPIC, buffer);
+    }
   }
-  
-  delay(10); // Small stability delay for loop
+  // Removed delay(1000) to keep loop responsive
+  // Using small delay for stability
+  delay(100);
 }

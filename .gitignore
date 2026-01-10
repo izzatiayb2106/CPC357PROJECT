@@ -208,3 +208,6 @@ __marimo__/
 
 # Firebase key file
 PROJECT/firebasekey.json
+
+#emergency_recording
+PROJECT/emergency_recordings/
