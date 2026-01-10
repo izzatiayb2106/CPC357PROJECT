@@ -1,5 +1,6 @@
 CPC357PROJECT
 🚌 Smart Bus Stop Environmental, Comfort & Safety Automation System
+
 📖 Project Summary
 
 The Smart Bus Stop Environmental, Comfort & Safety Automation System is an IoT-based solution designed to improve the safety, comfort, and emergency responsiveness of semi-indoor public transportation shelters. By integrating environmental monitoring, human-centered automation, and emergency surveillance, this system transforms traditional bus stops into intelligent, secure, and energy-efficient urban infrastructure.
