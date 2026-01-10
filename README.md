@@ -102,3 +102,39 @@ Step 5: Install Required Libraries
 
 Step 6: Run the Streamlit Dashboard
 -python -m streamlit run dashboard.py
+
+
+Python Dependencies:
+These libraries are required to run the Streamlit dashboard, camera processing, Firebase integration, and MQTT communication.
+
+Core Libraries
+Python 3.8+
+streamlit – Web-based dashboard UI
+opencv-python (cv2) – Live camera feed and video recording
+pandas – Sensor data processing and analytics
+numpy – Numerical computations
+threading – Background tasks (camera & data fetch)
+collections (deque) – Efficient event and energy logs
+datetime – Timestamp handling and time-based filtering
+time – Timing control and delays
+json – Data serialization for MQTT messages
+
+Cloud & Database
+firebase-admin – Firebase Firestore integration
+google-cloud-firestore – Cloud database backend
+
+Messaging / IoT Communication
+paho-mqtt – MQTT client for ESP32 ↔ Cloud communication
+
+Arduino / ESP32 Dependencies:
+These libraries are required to compile and upload the firmware to the ESP32 microcontroller.
+
+Core Libraries
+Arduino IDE (ESP32 Board Package Installed)
+WiFi.h – Wi-Fi connectivity for ESP32
+PubSubClient.h – MQTT communication
+ArduinoJson.h – JSON data formatting and parsing
+
+Hardware Control
+ESP32Servo.h – Servo motor control for automatic window operation
+
