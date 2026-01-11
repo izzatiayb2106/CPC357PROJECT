@@ -1,77 +1,140 @@
-# CPC357PROJECT
+CPC357PROJECT
+🚌 Smart Bus Stop Environmental, Comfort & Safety Automation System
 
-# Smart Bus Stop Environmental & Comfort Automation System 🚌✨
+📖 Project Summary
 
-## 📖 Project Summary
+The Smart Bus Stop Environmental, Comfort & Safety Automation System is an IoT-based solution designed to improve the safety, comfort, and emergency responsiveness of semi-indoor public transportation shelters. By integrating environmental monitoring, human-centered automation, and emergency surveillance, this system transforms traditional bus stops into intelligent, secure, and energy-efficient urban infrastructure.
 
-The **Smart Bus Stop Environmental & Comfort Automation System** is an IoT-based solution designed to improve the safety, comfort, and sustainability of semi-indoor public transportation shelters. By integrating environmental monitoring with human-centered automation, this system transforms traditional bus stops into responsive, energy-efficient urban facilities.
+The system continuously monitors environmental conditions such as air quality, rain, lighting, and human presence. In addition, it introduces a panic-based emergency response mechanism using a physical push button and live camera feed. Based on real-time sensor data and emergency triggers, the system activates actuators including a servo-controlled window, smart fan, buzzer, adaptive LED lighting, and emergency camera recording.
 
-The system continuously monitors conditions such as air quality, rain, and human presence. Based on real-time data, it triggers active actuators—including a servo-controlled window, smart fan, buzzer, and adaptive LED lighting—to create a safer and more comfortable waiting environment. This innovation supports **SDG 11 (Sustainable Cities and Communities)** by promoting energy-efficient infrastructure and public safety.
+This project supports SDG 11 (Sustainable Cities and Communities) by enhancing public safety, accessibility, and energy efficiency in urban public spaces.
 
----
+🚀 Key Features
 
-## 🚀 Key Features
+1️⃣ Environmental Monitoring & Safety (Outdoor + Indoor)
+💨 Smart Weather Protection
+Sensors: Outdoor Air Quality / Smoke Sensor & Rain Sensor
+Action:
+When hazardous air (haze/smoke) or rain is detected, the servo motor automatically closes the ventilation window to protect waiting passengers.
 
-### 1. Environmental Monitoring & Safety (Outdoor + Indoor)
+🚭 Anti-Smoking Alert
+Sensor: Indoor Smoke Sensor
+Action:
+If cigarette smoke is detected inside the bus stop:
+A buzzer is activated to alert users.
+An alert is logged on the dashboard for monitoring and analysis.
 
-- **💨 Smart Weather Protection:**
-  - **Sensors:** Outdoor Air Quality/Smoke Sensor & Rain Sensor.
-  - **Action:** If hazardous air (haze/smoke) or rain is detected, the **Servo Motor** automatically closes the ventilation window to protect passengers.
-- **🚭 Anti-Smoking Alert:**
-  - **Sensor:** Indoor Smoke Sensor.
-  - **Action:** If cigarette smoke is detected inside, a **Buzzer** activates to alert the user and deter smoking.
+2️⃣ Smart Comfort & Energy Efficiency (Indoor)
+❄️ Adaptive Energy Control
+Sensor: PIR Motion Sensor
+Action:
+The smart fan turns ON only when passengers are detected.
+Automatically turns OFF when no motion is detected, reducing unnecessary power usage.
 
-### 2. Smart Comfort & Energy Efficiency (Indoor)
+💡 Intelligent Lighting System
+Sensor: LDR (Light Dependent Resistor)
+Action:
+LED strips automatically adjust brightness:
+Dim during daylight hours to conserve energy
+Brighten at night to improve visibility and safety
 
-- **❄️ Adaptive Energy Control:**
-  - **Sensor:** PIR Motion Sensor.
-  - **Action:** The **Smart Fan** turns ON only when passengers are detected. It turns OFF automatically when the bus stop is empty to save energy.
-- **💡 Intelligent Lighting:**
-  - **Sensor:** LDR (Light Sensor).
-  - **Action:** **LED Strips** automatically adjust brightness—dimming during the day to conserve power and brightening at night for safety and visibility.
+3️⃣ Emergency & Safety Enhancements 
+🚨 Panic Button + Emergency Camera System
+A push button is installed inside the bus stop to allow passengers to trigger an emergency response during critical situations such as:
+Medical emergencies
+Harassment or assault
+Unsafe environmental conditions
 
----
+When the Panic Button is Pressed:
+🔘 Hardware Response
+Panic button sends a signal to the ESP32
+LED indicator flashes to acknowledge activation
+Buzzer sounds briefly to indicate emergency mode
 
-How to Run the Project
-Follow these steps in order to start the system.
+📷 Camera Response
+Live CCTV feed remains active
+System automatically:
+Captures continuous frames and saves a 30–60 second emergency video recording. It records the moment before and after the panic event for evidence
 
+☁️ Cloud & Dashboard Response
+Emergency event is:
+Logged in Firebase Firestore
+Displayed instantly on the Streamlit dashboard
+
+Emergency alerts include:
+Timestamp
+Event type (PANIC)
+Camera recording status
+Emergency videos are stored locally.
+
+This enhancement significantly improves user safety, accountability, and real-time incident response, making the system suitable for smart city deployment.
+
+
+▶️ How to Run the Project
 Step 1: Start the Cloud Server (VM)
-Log in to Google Cloud Platform Console.
-
-Start your Compute Engine VM instance.
-
-Copy the External IP Address of the VM.
+-Log in to Google Cloud Platform Console
+-Start your Compute Engine VM instance
+-Copy the External IP Address of the VM
 
 Step 2: Run the MQTT Bridge (On VM)
-Open your SSH terminal.
-
-Connect to your VM.
-
-Activate your Python virtual environment and run the bridge script:
-
-# Command to run inside SSH
+-Open your SSH terminal
+-Connect to the VM
+-Activate your Python virtual environment
+-Run the MQTT bridge script:
 nano mqtt.py
 python3 mqtt.py
-Keep this terminal open. It acts as the bridge between the hardware and the database.
+
+⚠️ Keep this terminal open — it acts as the bridge between the ESP32 hardware and Firebase.
 
 Step 3: Connect the Hardware (ESP32)
-Open your Arduino IDE.
+-Open Arduino IDE
+-Open your main ESP32 sketch
+-Paste the VM External IP into:
+-const char* mqtt_server = "VM_EXTERNAL_IP";
+-Connect ESP32 via USB and connect to wifi. 
+-Upload the code and connect to MQTT
 
-Open your main sketch file.
+Step 4: Activate Python Virtual Environment
+-source venv/bin/activate
 
-Paste the new VM External IP into the mqtt_server variable in your code.
+Step 5: Install Required Libraries
+-pip install streamlit firebase-admin pandas plotly opencv-python numpy python-multipart
 
-Connect your ESP32 board via USB.
-
-Upload the code and Connect to MQTT.
-
-Step 4: Launch the Dashboard 
-
-Navigate to your project folder.
-
-Run the Streamlit dashboard:
-
-python -m streamlit run dashboard.py
+Step 6: Run the Streamlit Dashboard
+-python -m streamlit run dashboard.py
 
 
+Python Dependencies:
+These libraries are required to run the Streamlit dashboard, camera processing, Firebase integration, and MQTT communication.
+
+Core Libraries
+Python 3.8+
+streamlit – Web-based dashboard UI
+opencv-python (cv2) – Live camera feed and video recording
+pandas – Sensor data processing and analytics
+numpy – Numerical computations
+threading – Background tasks (camera & data fetch)
+collections (deque) – Efficient event and energy logs
+datetime – Timestamp handling and time-based filtering
+time – Timing control and delays
+json – Data serialization for MQTT messages
+
+Cloud & Database
+firebase-admin – Firebase Firestore integration
+google-cloud-firestore – Cloud database backend
+
+Messaging / IoT Communication
+paho-mqtt – MQTT client for ESP32 ↔ Cloud communication
+
+Arduino / ESP32 Dependencies:
+These libraries are required to compile and upload the firmware to the ESP32 microcontroller.
+
+Core Libraries
+Arduino IDE (ESP32 Board Package Installed)
+WiFi.h – Wi-Fi connectivity for ESP32
+PubSubClient.h – MQTT communication
+ArduinoJson.h – JSON data formatting and parsing
+
+Hardware Control
+ESP32Servo.h – Servo motor control for automatic window operation
 
