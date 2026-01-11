@@ -154,19 +154,29 @@ def filter_data_by_period(df, period):
     return df[df['timestamp'] >= start_time]
 
 def generate_mock_data(num_records=50):
-    """Generate realistic mock sensor data for demo mode"""
+    """Generate realistic mock sensor data for demo mode across multiple days"""
     import random
     mock_data = []
     base_time = datetime.now()
     for i in range(num_records):
-        timestamp = base_time - timedelta(minutes=i*2)
+        # Spread data across multiple days (each record ~2-6 hours apart)
+        hours_offset = i * random.randint(2, 6)
+        timestamp = base_time - timedelta(hours=hours_offset)
+        
+        # Simulate day/night cycle for LDR based on hour
+        hour_of_day = timestamp.hour
+        if 6 <= hour_of_day <= 18:  # Daytime
+            ldr_value = random.randint(2000, 4000)
+        else:  # Nighttime
+            ldr_value = random.randint(100, 500)
+        
         mock_record = {
             'timestamp': timestamp,
             'smoke': random.randint(500, 3500),
             'air': random.randint(800, 3000),
             'motion_detected': random.random() < 0.3,
             'rain': random.random() < 0.1,
-            'ldr': random.randint(100, 4000),
+            'ldr': ldr_value,
             'window': "CLOSED" if random.random() < 0.8 else "OPEN",
             'emergency': "false",
             'panic': "false",
@@ -459,6 +469,7 @@ def generate_historical_charts(df):
                 col1.metric("Avg Air Quality", f"{df['air'].mean():.1f}")
                 col2.metric("Max Reading", f"{df['air'].max():.1f}")
                 col3.metric("Min Reading", f"{df['air'].min():.1f}")
+                st.caption("📊 Lower values = Better air quality | Threshold: Good < 2000, Moderate < 3000, Poor ≥ 3000")
     with hist_tabs[1]:
         if 'timestamp' in df.columns and 'motion_detected' in df.columns:
             motion_hist = df[['timestamp', 'motion_detected']].copy()
@@ -467,19 +478,26 @@ def generate_historical_charts(df):
             if not motion_hist.empty:
                 st.area_chart(motion_hist[['occupancy']], height=300)
     with hist_tabs[2]:
-        if 'timestamp' in df.columns:
-            light_df = df[['timestamp']].copy()
+        if 'timestamp' in df.columns and 'ldr' in df.columns:
+            light_df = df[['timestamp', 'ldr']].copy()
             light_df['hour'] = pd.to_datetime(light_df['timestamp']).dt.hour
-            hourly_light = light_df.groupby('hour').size()
+            hourly_light = light_df.groupby('hour')['ldr'].mean()
             if not hourly_light.empty:
                 st.bar_chart(hourly_light, height=300)
+                st.caption("📊 Average light level (LDR) by hour of day - Higher = Brighter")
     with hist_tabs[3]:
         if 'timestamp' in df.columns and 'motion_detected' in df.columns:
             fan_df = df[['timestamp', 'motion_detected']].copy()
             fan_df['date'] = pd.to_datetime(fan_df['timestamp']).dt.date
-            daily_fan = fan_df.groupby('date')['motion_detected'].sum()
+            # Estimate fan duration: each motion detection = ~5 minutes of fan running
+            fan_df['fan_minutes'] = fan_df['motion_detected'].astype(int) * 5
+            daily_fan = fan_df.groupby('date')['fan_minutes'].sum()
             if not daily_fan.empty:
                 st.bar_chart(daily_fan, height=300)
+                col1, col2 = st.columns(2)
+                col1.metric("Total Fan Time", f"{daily_fan.sum():.0f} min")
+                col2.metric("Daily Average", f"{daily_fan.mean():.1f} min")
+                st.caption("📊 Estimated fan running time per day (based on motion detections)")
 
 # ================= CAMERA FUNCTIONS =================
 def camera_capture_thread(camera_source, width, height, stop_flag, frame_container):
@@ -588,13 +606,24 @@ def silent_data_fetch_loop(interval, db_ref, demo_mode_getter):
                     mock_data = []
                     base_time = datetime.now()
                     for i in range(50):
+                        # Spread data across multiple days (each record ~2-6 hours apart)
+                        hours_offset = i * random.randint(2, 6)
+                        timestamp = base_time - timedelta(hours=hours_offset)
+                        
+                        # Simulate day/night cycle for LDR based on hour
+                        hour_of_day = timestamp.hour
+                        if 6 <= hour_of_day <= 18:  # Daytime
+                            ldr_value = random.randint(2000, 4000)
+                        else:  # Nighttime
+                            ldr_value = random.randint(100, 500)
+                        
                         mock_data.append({
-                            'timestamp': base_time - timedelta(minutes=i*2),
+                            'timestamp': timestamp,
                             'smoke': random.randint(500, 3500),
                             'air': random.randint(800, 3000),
                             'motion_detected': random.random() < 0.3,
                             'rain': random.random() < 0.1,
-                            'ldr': random.randint(100, 4000),
+                            'ldr': ldr_value,
                             'window': "CLOSED" if random.random() < 0.8 else "OPEN",
                             'emergency': "false",
                             'panic': "false",
@@ -743,7 +772,7 @@ air_val = latest.get('air', 0)
 ldr_val = latest.get('ldr', 0)
 smoke_color = "🟢" if smoke_val < 2000 else "🟡" if smoke_val < 3000 else "🔴"
 air_color = "🟢" if air_val < 2000 else "🟡" if air_val < 3000 else "🔴"
-ldr_color = "🌑" if ldr_val < 20 else "🌘" if ldr_val < 40 else "🌗" if ldr_val < 70 else "🌕"
+ldr_color = "🌑" if ldr_val < 500 else "🌘" if ldr_val < 1500 else "🌗" if ldr_val < 2500 else "🌕"
 
 col1.metric("🌧️ Rain Detected", "YES ☔" if rain_val else "NO ☀️")
 col2.metric("💨 Smoke Sensor", f"{smoke_val} {smoke_color}")
